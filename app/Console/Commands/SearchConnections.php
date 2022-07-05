@@ -29,18 +29,31 @@ class SearchConnections extends Command
      */
     public function handle()
     {
-        $companies = Company::doesntHave('articles')->limit(10000)->get();
-        $bar = $this->output->createProgressBar(count($companies));
-        $bar->start();
-        foreach($companies as $company) {
-            $articles = Article::search($company->getSanitizedName())->paginate(20);
-            $company->articles()->attach($articles->pluck('id'));
-            $bar->advance();
-        }
-        $bar->finish();
+        $this->info('Calculating Most Common Words in Company Names');
+        $commonWords = Company::getMostCommonWords();
+        $this->info('Found ' . count($commonWords) . ' Common Words in Company Names');
 
-//        $company = Company::find(21340);
-//        dump($company->name);
-//        dd($company->articles->pluck('title'));
+        $this->info('Retrieving Companies');
+        $companies = Company::doesntHave('articles')->limit(100000)->get();
+        $this->info('Work through all companies to find matching articles now...');
+//        $bar = $this->output->createProgressBar(count($companies));
+//        $bar->start();
+        foreach($companies as $company) {
+            $cleanedCompanyName = $company->clearNameFromCommonWords($commonWords);
+            $articles = collect(\App\Models\Article::search($cleanedCompanyName)->must(new \JeroenG\Explorer\Domain\Syntax\MultiMatch($cleanedCompanyName, ['title', 'content'], 0))->take(10000)->raw()->hits());
+            if(count($articles) >= 1) {
+                $minScore = $articles->first()['_score'] / 3;
+                $articles = $articles->filter(function ($item, $key) use ($minScore) {
+                    return $item['_score'] > $minScore;
+                })->pluck('_id');
+                $company->articles()->sync($articles);
+
+                $this->info('For Company ' . $company->name . ' (sanitized: ' . $cleanedCompanyName . ' ): Found ' . count($articles) . ' Articles, highest Score: ' . $minScore*3);
+
+            }
+
+//            $bar->advance();
+        }
+//        $bar->finish();
     }
 }

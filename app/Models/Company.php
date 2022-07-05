@@ -22,20 +22,31 @@ class Company extends Model
         return $this->belongsToMany(Article::class, 'article_company', 'company_id', 'article_id');
     }
 
-/*    public function getSanitizedNameAttribute() {
-        $name = $this->name;
-        return $name;
-        foreach($this->stopWords as $word) {
-            $name = preg_replace('/ ' . $word . '$/', '', $name);
-        }
-    }*/
-
     public function getSanitizedName() {
         $name = strtolower($this->name);
         foreach($this->stopWords as $word) {
             $name = preg_replace('/ ' . strtolower($word) . '$/', '', $name);
         }
         return $name;
+    }
+
+    public function clearNameFromCommonWords(array $listOfCommonWords) : string {
+        $nameTokens = explode(' ', $this->getSanitizedName());
+        return implode(' ', array_diff($nameTokens, $listOfCommonWords));
+    }
+
+    public static function getMostCommonWords(int $minAppearances = 100) : array {
+        $words = []; // wort -> anzahl
+        $companies = Company::all();
+        foreach ($companies as $company) {
+            $tokens = explode(' ', $company->getSanitizedName());
+            foreach($tokens as $token) {
+                array_key_exists($token, $words) ? $words[$token] = $words[$token] + 1 : $words[$token] = 1;
+            }
+        }
+        return collect($words)->sortDesc()->filter(function ($value) use ($minAppearances) {
+            return $value >= $minAppearances;
+        })->keys()->toArray();
     }
 
 
