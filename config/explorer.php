@@ -19,7 +19,8 @@ return [
      * of the mapping possibilities can be found in the documentation of Explorer's repository.
      */
     'indexes' => [
-         \App\Models\Article::class
+         \App\Models\Article::class,
+         \App\Models\Company::class,
     ],
 
     /**

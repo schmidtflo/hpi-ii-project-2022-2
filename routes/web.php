@@ -24,3 +24,5 @@ Route::get('/', function () {
 //    dd(\App\Models\Article::findMany($data)->last());
     return view('test', ['data' => $data, 'count' => count($data)]);
 });
+
+Route::get('search', [\App\Http\Controllers\HomeController::class, 'show']);
